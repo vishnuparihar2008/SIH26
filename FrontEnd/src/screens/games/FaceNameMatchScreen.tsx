@@ -5,7 +5,7 @@ import { MultipleChoiceQuiz } from '@/components/MultipleChoiceQuiz';
 import { SessionSummary } from '@/components/SessionSummary';
 import { PlaceholderPhoto } from '@/components/PlaceholderPhoto';
 import { FACE_NAME_QUESTIONS } from '@/data/mockGameData';
-import { colors, layout } from '@/theme/theme';
+import { colors, spacing } from '@/theme/theme';
 import { GameSessionResult } from '@/types/game';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
 
@@ -42,7 +42,7 @@ export function FaceNameMatchScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: layout.screenPadding,
+    backgroundColor: colors.canvas,
+    padding: spacing.lg,
   },
 });

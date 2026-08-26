@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LargeButton } from '@/components/LargeButton';
-import { colors, typography, spacing } from '@/theme/theme';
+import { colors, typography, spacing, rounded } from '@/theme/theme';
 import { MultipleChoiceQuestion, GameSessionResult, GameId } from '@/types/game';
 
 interface MultipleChoiceQuizProps {
@@ -79,34 +79,39 @@ export function MultipleChoiceQuiz({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.progress}>
-        Question {index + 1} of {questions.length}
-      </Text>
+      <View style={styles.progressPill}>
+        <Text style={styles.progressText}>
+          Question {index + 1} of {questions.length}
+        </Text>
+      </View>
 
       {renderQuestionVisual?.(question)}
 
       <Text style={styles.prompt}>{question.prompt}</Text>
 
-      {question.options.map((option, i) => {
-        let variant: 'default' | 'correct' | 'incorrect' | 'disabled' = 'default';
-        if (answerState !== 'unanswered') {
-          if (i === question.correctOptionIndex) variant = 'correct';
-          else if (i === selectedOption) variant = 'incorrect';
-          else variant = 'disabled';
-        }
-        return (
-          <LargeButton
-            key={i}
-            label={option}
-            variant={variant}
-            onPress={() => handleSelect(i)}
-          />
-        );
-      })}
+      <View style={styles.optionsContainer}>
+        {question.options.map((option, i) => {
+          let variant: 'option' | 'correct' | 'incorrect' | 'disabled' = 'option';
+          if (answerState !== 'unanswered') {
+            if (i === question.correctOptionIndex) variant = 'correct';
+            else if (i === selectedOption) variant = 'incorrect';
+            else variant = 'disabled';
+          }
+          return (
+            <LargeButton
+              key={i}
+              label={option}
+              variant={variant}
+              onPress={() => handleSelect(i)}
+            />
+          );
+        })}
+      </View>
 
       {answerState !== 'unanswered' && (
         <LargeButton
-          label={isLastQuestion ? 'Finish' : 'Next'}
+          label={isLastQuestion ? 'Finish' : 'Next Question'}
+          variant="primary"
           onPress={handleNext}
           style={styles.nextButton}
         />
@@ -118,19 +123,34 @@ export function MultipleChoiceQuiz({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.canvas,
   },
-  progress: {
-    fontSize: typography.caption,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  prompt: {
-    fontSize: typography.heading,
-    fontWeight: '600',
-    color: colors.textPrimary,
+  progressPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.canvasSoft,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: rounded.button,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
     marginBottom: spacing.md,
   },
+  progressText: {
+    fontSize: typography.bodySmStrong.fontSize,
+    fontWeight: '700',
+    color: colors.mute,
+  },
+  prompt: {
+    fontSize: typography.displayMd.fontSize,
+    fontWeight: '700',
+    color: colors.ink,
+    lineHeight: typography.displayMd.lineHeight,
+    marginBottom: spacing.md,
+  },
+  optionsContainer: {
+    marginVertical: spacing.xs,
+  },
   nextButton: {
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
 });

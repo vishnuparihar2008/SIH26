@@ -4,7 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MultipleChoiceQuiz } from '@/components/MultipleChoiceQuiz';
 import { SessionSummary } from '@/components/SessionSummary';
 import { LOCAL_CULTURE_QUESTIONS } from '@/data/mockGameData';
-import { colors, layout } from '@/theme/theme';
+import { colors, spacing } from '@/theme/theme';
 import { GameSessionResult } from '@/types/game';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
 
@@ -40,7 +40,7 @@ export function LocalCultureMatchScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: layout.screenPadding,
+    backgroundColor: colors.canvas,
+    padding: spacing.lg,
   },
 });

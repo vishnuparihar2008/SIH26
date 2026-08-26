@@ -1,24 +1,30 @@
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider } from '@/context/AuthContext';
 import { AppNavigator } from '@/navigation/AppNavigator';
 
 /**
- * Phase 1 entry point.
+ * App entry point.
  *
- * Deliberately NOT included yet (later phases, per implementation-plan.md):
- * - Local SQLite / WatermelonDB persistence (Phase 2)
+ * Auth flow added (Phase 2 backend sync):
+ * - AuthProvider manages login state, token storage, and session restore.
+ * - AppNavigator gates navigation based on role:
+ *     Unauthenticated → Login / Register screens
+ *     Patient         → Cognitive Care home (games, voice, vitals, reminders)
+ *     Caretaker       → Care Dashboard (patient list, vitals, game stats)
+ *
+ * Still NOT included (later phases):
+ * - Local SQLite / WatermelonDB persistence (Phase 3)
  * - Offline ASR/TTS voice assistant (Phase 3)
  * - Adaptive difficulty engine wiring (Phase 4)
  * - BLE wearable + emergency response (Phase 5)
- * - Backend sync (Phase 7)
- *
- * This app runs fully standalone, offline, with hardcoded difficulty,
- * exactly as scoped for Phase 1.
  */
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppNavigator />
+      <AuthProvider>
+        <AppNavigator />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

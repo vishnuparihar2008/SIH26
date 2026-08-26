@@ -8,7 +8,7 @@ import {
   MEMORY_TRAY_OPTION_POOL,
   MEMORY_TRAY_DISPLAY_SECONDS,
 } from '@/data/mockGameData';
-import { colors, typography, spacing, layout, touchTarget } from '@/theme/theme';
+import { colors, typography, spacing, rounded, shadows } from '@/theme/theme';
 import { GameSessionResult, TrayItem } from '@/types/game';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
 
@@ -100,13 +100,22 @@ export function MemoryTrayScreen({ navigation }: Props) {
   if (stage === 'showing') {
     return (
       <View style={styles.screen}>
-        <Text style={styles.heading}>Remember these items</Text>
-        <View style={styles.trayRow}>
+        <View style={styles.header}>
+          <Text style={styles.heading}>Remember these objects</Text>
+          <Text style={styles.subheading}>
+            Study the items carefully before they disappear
+          </Text>
+        </View>
+
+        <View style={styles.trayGrid}>
           {MEMORY_TRAY_SHOWN_ITEMS.map((item: TrayItem) => (
             <TrayCell key={item.id} item={item} />
           ))}
         </View>
-        <Text style={styles.timer}>Hiding in {secondsLeft}...</Text>
+
+        <View style={styles.timerPill}>
+          <Text style={styles.timerText}>Hiding in {secondsLeft} seconds</Text>
+        </View>
       </View>
     );
   }
@@ -114,27 +123,37 @@ export function MemoryTrayScreen({ navigation }: Props) {
   // stage === 'selecting'
   return (
     <View style={styles.screen}>
-      <Text style={styles.heading}>Which items did you see?</Text>
-      <View style={styles.trayRow}>
-        {MEMORY_TRAY_OPTION_POOL.map((item: TrayItem) => (
-          <Pressable
-            key={item.id}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: selected.has(item.id) }}
-            onPress={() => toggle(item.id)}
-            style={[
-              styles.selectableCell,
-              selected.has(item.id) && styles.selectedCell,
-            ]}
-          >
-            <Text style={styles.trayIcon}>{item.icon}</Text>
-            <Text style={styles.trayLabel}>{item.label}</Text>
-          </Pressable>
-        ))}
+      <View style={styles.header}>
+        <Text style={styles.heading}>Which objects did you see?</Text>
+        <Text style={styles.subheading}>Tap all the items that were on the tray</Text>
       </View>
+
+      <View style={styles.trayGrid}>
+        {MEMORY_TRAY_OPTION_POOL.map((item: TrayItem) => {
+          const isSelected = selected.has(item.id);
+          return (
+            <Pressable
+              key={item.id}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isSelected }}
+              onPress={() => toggle(item.id)}
+              style={[
+                styles.selectableCell,
+                isSelected && styles.selectedCell,
+              ]}
+            >
+              <Text style={styles.trayIcon}>{item.icon}</Text>
+              <Text style={[styles.trayLabel, isSelected && styles.selectedLabel]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <LargeButton
-        label="Submit"
-        variant={selected.size === 0 ? 'disabled' : 'default'}
+        label={selected.size === 0 ? 'Select Items to Submit' : `Submit (${selected.size} Selected)`}
+        variant={selected.size === 0 ? 'disabled' : 'primary'}
         onPress={submit}
         style={styles.submitButton}
       />
@@ -154,51 +173,86 @@ function TrayCell({ item }: { item: TrayItem }) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: layout.screenPadding,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.section,
   },
-  heading: {
-    fontSize: typography.heading,
-    fontWeight: '600',
-    color: colors.textPrimary,
+  header: {
     marginBottom: spacing.lg,
   },
-  trayRow: {
+  heading: {
+    fontSize: typography.displayLg.fontSize,
+    fontWeight: '700',
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  subheading: {
+    fontSize: typography.bodyLg.fontSize,
+    fontWeight: '400',
+    color: colors.mute,
+    lineHeight: typography.bodyLg.lineHeight,
+  },
+  trayGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: spacing.md,
     justifyContent: 'center',
+    marginBottom: spacing.xl,
   },
   trayCell: {
+    width: 100,
+    height: 100,
+    borderRadius: rounded.card,
+    backgroundColor: colors.canvasSoft,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    justifyContent: 'center',
     alignItems: 'center',
-    margin: spacing.sm,
+    ...shadows.softFloat,
   },
   selectableCell: {
+    width: 100,
+    height: 100,
+    borderRadius: rounded.card,
+    backgroundColor: colors.canvas,
+    borderWidth: 1.5,
+    borderColor: colors.hairline,
+    justifyContent: 'center',
     alignItems: 'center',
-    margin: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: touchTarget.borderRadius,
-    borderWidth: 2,
-    borderColor: colors.border,
-    minWidth: touchTarget.minWidth,
-    minHeight: touchTarget.minHeight,
+    ...shadows.softFloat,
   },
   selectedCell: {
-    borderColor: colors.primary,
-    backgroundColor: colors.surface,
+    borderColor: colors.ink,
+    backgroundColor: colors.canvasSoft,
   },
   trayIcon: {
-    fontSize: 40,
+    fontSize: 38,
+    marginBottom: 2,
   },
   trayLabel: {
-    fontSize: typography.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+    fontSize: typography.bodySmStrong.fontSize,
+    fontWeight: '700',
+    color: colors.ink,
   },
-  timer: {
-    fontSize: typography.body,
-    color: colors.textSecondary,
+  selectedLabel: {
+    color: colors.ink,
+  },
+  timerPill: {
+    alignSelf: 'center',
+    backgroundColor: colors.canvasSoft,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: rounded.button,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+  },
+  timerText: {
+    fontSize: typography.bodyMdStrong.fontSize,
+    fontWeight: '700',
+    color: colors.ink,
     textAlign: 'center',
-    marginTop: spacing.lg,
   },
   submitButton: {
     marginTop: spacing.lg,

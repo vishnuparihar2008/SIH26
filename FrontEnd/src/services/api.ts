@@ -1,0 +1,192 @@
+/**
+ * api.ts — Centralized API client for the Cognitive Care app.
+ *
+ * Uses the built-in fetch API (no extra deps).
+ * Automatically attaches the Bearer token from AuthContext.
+ * Falls back to Android emulator URL in development.
+ *
+ * Usage:
+ *   import { api } from '@/services/api';
+ *   const data = await api.post('/auth/login', { email, password });
+ */
+
+// ─── Config ─────────────────────────────────────────────────────────────────
+// Android emulator → 10.0.2.2, iOS simulator → 127.0.0.1, physical device → your LAN IP
+// Change this to your deployed URL in production.
+const BASE_URL = __DEV__
+  ? 'http://10.0.2.2:5000/api/v1'
+  : 'https://your-production-api.com/api/v1';
+
+// ─── Token store ─────────────────────────────────────────────────────────────
+// Simple module-level singleton — AuthContext sets this after login.
+let _authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  _authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return _authToken;
+}
+
+// ─── Core fetch wrapper ───────────────────────────────────────────────────────
+
+type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+interface ApiOptions {
+  method?: HTTPMethod;
+  body?: Record<string, unknown>;
+  headers?: Record<string, string>;
+}
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly data?: unknown,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function request<T = unknown>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> {
+  const { method = 'GET', body, headers: extraHeaders = {} } = options;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...extraHeaders,
+  };
+
+  if (_authToken) {
+    headers['Authorization'] = `Bearer ${_authToken}`;
+  }
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    json = null;
+  }
+
+  if (!response.ok) {
+    const message =
+      (json as { message?: string })?.message ?? `HTTP ${response.status}`;
+    throw new ApiError(response.status, message, json);
+  }
+
+  return json as T;
+}
+
+// ─── Convenience methods ──────────────────────────────────────────────────────
+
+export const api = {
+  get: <T = unknown>(path: string) => request<T>(path, { method: 'GET' }),
+
+  post: <T = unknown>(path: string, body: Record<string, unknown>) =>
+    request<T>(path, { method: 'POST', body }),
+
+  put: <T = unknown>(path: string, body: Record<string, unknown>) =>
+    request<T>(path, { method: 'PUT', body }),
+
+  delete: <T = unknown>(path: string) => request<T>(path, { method: 'DELETE' }),
+};
+
+// ─── Typed API calls ──────────────────────────────────────────────────────────
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+  role?: 'caretaker' | 'patient';
+}
+
+export interface RegisterPayload {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  role: 'caretaker' | 'patient';
+  relationshipToPatients?: string;
+  dateOfBirth?: string;
+  gender?: string;
+}
+
+export interface AuthResponse {
+  message: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    role: 'caretaker' | 'patient';
+    caretakerProfile?: unknown;
+    patientProfile?: unknown;
+  };
+  accessToken: string;
+}
+
+export interface Patient {
+  _id: string;
+  fullName: string;
+  dateOfBirth: string;
+  gender: string;
+  bloodGroup: string;
+  status: 'active' | 'inactive' | 'deceased' | 'discharged';
+  vitalsMonitoring: {
+    enabled: boolean;
+    lastRecordedAt: string | null;
+    currentVitals: {
+      heartRate: number;
+      spO2: number;
+      motionStatus: string;
+      tier: 'normal' | 'low' | 'high' | 'lethal';
+    };
+  };
+  gameStats: {
+    totalSessions: number;
+    averageScore: number;
+    lastPlayedAt: string | null;
+  };
+  contact: { phone: string; email: string };
+  medicalInfo: {
+    conditions: string[];
+    allergies: string[];
+    medications: { name: string; dosage: string; frequency: string }[];
+  };
+}
+
+export const authApi = {
+  login: (payload: LoginPayload) =>
+    api.post<AuthResponse>('/auth/login', payload as Record<string, unknown>),
+
+  register: (payload: RegisterPayload) =>
+    api.post<AuthResponse>('/auth/register', payload as Record<string, unknown>),
+
+  me: () => api.get<{ user: AuthResponse['user'] }>('/auth/me'),
+
+  logout: () => api.post('/auth/logout', {}),
+};
+
+export const patientApi = {
+  list: () => api.get<{ success: boolean; count: number; data: Patient[] }>('/patients'),
+
+  getById: (id: string) => api.get<{ success: boolean; data: Patient }>(`/patients/${id}`),
+
+  create: (data: Partial<Patient>) =>
+    api.post<{ success: boolean; data: Patient }>('/patients', data as Record<string, unknown>),
+
+  update: (id: string, data: Partial<Patient>) =>
+    api.put<{ success: boolean; data: Patient }>(`/patients/${id}`, data as Record<string, unknown>),
+
+  recordGame: (id: string, payload: { gameId: string; score: number; accuracy?: number; durationSeconds?: number }) =>
+    api.post(`/patients/${id}/game-results`, payload as Record<string, unknown>),
+};
