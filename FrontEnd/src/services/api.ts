@@ -10,12 +10,18 @@
  *   const data = await api.post('/auth/login', { email, password });
  */
 
+import { Platform } from 'react-native';
+
 // ─── Config ─────────────────────────────────────────────────────────────────
-// Android emulator → 10.0.2.2, iOS simulator → 127.0.0.1, physical device → your LAN IP
+// Android emulator → 10.0.2.2, Web/iOS simulator/physical device → localhost
 // Change this to your deployed URL in production.
-const BASE_URL = __DEV__
-  ? 'http://10.0.2.2:5000/api/v1'
-  : 'https://your-production-api.com/api/v1';
+function getBaseUrl(): string {
+  if (!__DEV__) return 'https://your-production-api.com/api/v1';
+  if (Platform.OS === 'android') return 'http://10.0.2.2:5000/api/v1'; // Android emulator
+  if (typeof document !== 'undefined') return 'http://localhost:5000/api/v1'; // web browser
+  return 'http://192.168.29.199:5000/api/v1'; // physical iOS / Android device on LAN
+}
+const BASE_URL = getBaseUrl();
 
 // ─── Token store ─────────────────────────────────────────────────────────────
 // Simple module-level singleton — AuthContext sets this after login.
@@ -190,3 +196,4 @@ export const patientApi = {
   recordGame: (id: string, payload: { gameId: string; score: number; accuracy?: number; durationSeconds?: number }) =>
     api.post(`/patients/${id}/game-results`, payload as Record<string, unknown>),
 };
+

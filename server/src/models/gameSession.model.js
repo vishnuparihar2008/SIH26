@@ -90,3 +90,4 @@ gameSessionSchema.index({ caretakerId: 1, completedAt: -1 }); // Caretaker dashb
 const gameSessionModel = mongoose.model("game_sessions", gameSessionSchema);
 
 export default gameSessionModel;
+

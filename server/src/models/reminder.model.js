@@ -92,3 +92,4 @@ reminderSchema.index({ patientId: 1, isActive: 1, scheduledAt: 1 });
 const reminderModel = mongoose.model("reminders", reminderSchema);
 
 export default reminderModel;
+

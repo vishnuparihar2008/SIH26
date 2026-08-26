@@ -76,3 +76,4 @@ vitalsSchema.index({ recordedAt: 1 }, { expireAfterSeconds: 2 * 365 * 24 * 60 * 
 const vitalsModel = mongoose.model("vitals", vitalsSchema);
 
 export default vitalsModel;
+

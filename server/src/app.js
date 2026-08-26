@@ -14,7 +14,15 @@ const app = express();
 
 app.use(
   cors({
-    origin: config.env === "production" ? process.env.FRONTEND_URL : "*",
+    origin:
+      config.env === "production"
+        ? process.env.FRONTEND_URL
+        : [
+            "http://localhost:8081", // Expo web dev server
+            "http://localhost:3000",
+            "http://localhost:19006", // older Expo web port
+            "http://192.168.29.199:8081", // physical device via LAN
+          ],
     credentials: true,
   }),
 );
