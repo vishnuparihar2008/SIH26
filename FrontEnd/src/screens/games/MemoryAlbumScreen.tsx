@@ -1,0 +1,50 @@
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { MultipleChoiceQuiz } from '@/components/MultipleChoiceQuiz';
+import { SessionSummary } from '@/components/SessionSummary';
+import { PlaceholderPhoto } from '@/components/PlaceholderPhoto';
+import { MEMORY_ALBUM_QUESTIONS } from '@/data/mockGameData';
+import { colors, layout } from '@/theme/theme';
+import { GameSessionResult } from '@/types/game';
+import type { RootStackParamList } from '@/navigation/AppNavigator';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'MemoryAlbum'>;
+
+/**
+ * Personalized family-photo recognition — the flagship USP from the PRD.
+ * Real caregiver-uploaded photos aren't wired up yet (see mockGameData.ts
+ * note), so PlaceholderPhoto stands in for now.
+ */
+export function MemoryAlbumScreen({ navigation }: Props) {
+  const [result, setResult] = useState<GameSessionResult | null>(null);
+
+  return (
+    <View style={styles.screen}>
+      {result ? (
+        <SessionSummary
+          result={result}
+          onPlayAgain={() => setResult(null)}
+          onGoHome={() => navigation.navigate('Home')}
+        />
+      ) : (
+        <MultipleChoiceQuiz
+          gameId="memory-album"
+          questions={MEMORY_ALBUM_QUESTIONS}
+          renderQuestionVisual={q => (
+            <PlaceholderPhoto label="Family photo" imageUri={q.imageUri} />
+          )}
+          onComplete={setResult}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: layout.screenPadding,
+  },
+});
