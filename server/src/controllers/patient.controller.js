@@ -38,9 +38,18 @@ async function resolveCaretakerId(user) {
 // ---------------------------------------------------------------------------
 export const getPatients = async (req, res, next) => {
   try {
-    const caretakerId = await resolveCaretakerId(req.user);
+    let query = {};
 
-    const query = caretakerId ? { caretakerId } : {};
+    if (req.user?.role === "patient") {
+      if (req.user.patientProfile) {
+        query = { _id: req.user.patientProfile };
+      } else {
+        query = { "contact.email": req.user.email };
+      }
+    } else if (req.user?.role === "caretaker") {
+      const caretakerId = await resolveCaretakerId(req.user);
+      query = caretakerId ? { caretakerId } : { _id: null };
+    }
 
     const patients = await patientModel
       .find(query)
@@ -282,3 +291,58 @@ export const updateVitals = async (req, res, next) => {
     next(err);
   }
 };
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/patients/link  (caretaker links an existing patient)
+// ---------------------------------------------------------------------------
+export const linkPatient = async (req, res, next) => {
+  try {
+    const { identifier } = req.body; // email or phone or patient ID
+    if (!identifier) {
+      return res.status(400).json({
+        success: false,
+        message: "Patient email, phone, or ID is required.",
+      });
+    }
+
+    const caretakerId = await resolveCaretakerId(req.user);
+    if (!caretakerId) {
+      return res.status(403).json({
+        success: false,
+        message: "Only caretakers can link patients.",
+      });
+    }
+
+    let patient = null;
+    if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
+      patient = await patientModel.findById(identifier);
+    }
+    if (!patient) {
+      patient = await patientModel.findOne({
+        $or: [
+          { "contact.email": identifier.toLowerCase().trim() },
+          { "contact.phone": identifier.trim() },
+        ],
+      });
+    }
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "No patient found matching the provided email, phone, or ID.",
+      });
+    }
+
+    patient.caretakerId = caretakerId;
+    await patient.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Patient ${patient.fullName} successfully linked to your care!`,
+      data: patient,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

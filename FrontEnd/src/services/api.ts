@@ -98,11 +98,14 @@ async function request<T = unknown>(
 export const api = {
   get: <T = unknown>(path: string) => request<T>(path, { method: 'GET' }),
 
-  post: <T = unknown>(path: string, body: Record<string, unknown>) =>
+  post: <T = unknown>(path: string, body?: Record<string, unknown>) =>
     request<T>(path, { method: 'POST', body }),
 
-  put: <T = unknown>(path: string, body: Record<string, unknown>) =>
+  put: <T = unknown>(path: string, body?: Record<string, unknown>) =>
     request<T>(path, { method: 'PUT', body }),
+
+  patch: <T = unknown>(path: string, body?: Record<string, unknown>) =>
+    request<T>(path, { method: 'PATCH', body }),
 
   delete: <T = unknown>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
@@ -146,6 +149,7 @@ export interface Patient {
   dateOfBirth: string;
   gender: string;
   bloodGroup: string;
+  relationshipToCaretaker?: string;
   status: 'active' | 'inactive' | 'deceased' | 'discharged';
   vitalsMonitoring: {
     enabled: boolean;
@@ -167,15 +171,16 @@ export interface Patient {
     conditions: string[];
     allergies: string[];
     medications: { name: string; dosage: string; frequency: string }[];
+    emergencyContact?: { name?: string; phone?: string; relation?: string };
   };
 }
 
 export const authApi = {
   login: (payload: LoginPayload) =>
-    api.post<AuthResponse>('/auth/login', payload as Record<string, unknown>),
+    api.post<AuthResponse>('/auth/login', payload as unknown as Record<string, unknown>),
 
   register: (payload: RegisterPayload) =>
-    api.post<AuthResponse>('/auth/register', payload as Record<string, unknown>),
+    api.post<AuthResponse>('/auth/register', payload as unknown as Record<string, unknown>),
 
   me: () => api.get<{ user: AuthResponse['user'] }>('/auth/me'),
 
@@ -190,10 +195,97 @@ export const patientApi = {
   create: (data: Partial<Patient>) =>
     api.post<{ success: boolean; data: Patient }>('/patients', data as Record<string, unknown>),
 
+  link: (identifier: string) =>
+    api.post<{ success: boolean; message: string; data: Patient }>('/patients/link', { identifier }),
+
   update: (id: string, data: Partial<Patient>) =>
     api.put<{ success: boolean; data: Patient }>(`/patients/${id}`, data as Record<string, unknown>),
 
   recordGame: (id: string, payload: { gameId: string; score: number; accuracy?: number; durationSeconds?: number }) =>
     api.post(`/patients/${id}/game-results`, payload as Record<string, unknown>),
 };
+
+export interface ServerReminder {
+  _id: string;
+  patientId: string | { _id: string; fullName: string };
+  caretakerId?: string;
+  title: string;
+  description?: string;
+  type: 'medicine' | 'hydration' | 'appointment' | 'exercise' | 'meal' | 'sleep' | 'other';
+  scheduledAt: string;
+  recurrence: 'none' | 'daily' | 'weekly' | 'monthly';
+  recurrenceDays?: number[];
+  isActive: boolean;
+  acknowledgedAt?: string | null;
+  medication?: {
+    name: string;
+    dosage: string;
+    instructions: string;
+  };
+  createdAt: string;
+}
+
+export const reminderApi = {
+  list: (patientId?: string) =>
+    api.get<{ success: boolean; count: number; data: ServerReminder[] }>(
+      patientId ? `/reminders/patient/${patientId}` : '/reminders'
+    ),
+
+  create: (payload: Partial<ServerReminder>) =>
+    api.post<{ success: boolean; message: string; data: ServerReminder }>(
+      '/reminders',
+      payload as Record<string, unknown>
+    ),
+
+  update: (id: string, payload: Partial<ServerReminder>) =>
+    api.put<{ success: boolean; message: string; data: ServerReminder }>(
+      `/reminders/${id}`,
+      payload as Record<string, unknown>
+    ),
+
+  toggle: (id: string) =>
+    api.patch<{ success: boolean; message: string; data: ServerReminder }>(
+      `/reminders/${id}/toggle`,
+      {}
+    ),
+
+  acknowledge: (id: string) =>
+    api.patch<{ success: boolean; message: string; data: ServerReminder }>(
+      `/reminders/${id}/acknowledge`,
+      {}
+    ),
+
+  delete: (id: string) =>
+    api.delete<{ success: boolean; message: string }>(`/reminders/${id}`),
+};
+
+export const vitalsApi = {
+  getHistory: (patientId: string, limit = 50) =>
+    api.get<{ success: boolean; count: number; data: any[] }>(
+      `/vitals/patient/${patientId}?limit=${limit}`
+    ),
+
+  record: (patientId: string, payload: Record<string, unknown>) =>
+    api.post<{ success: boolean; message: string; data: any; currentVitals: any }>(
+      `/vitals/patient/${patientId}`,
+      payload
+    ),
+
+  bulkSync: (readings: any[]) =>
+    api.post<{ success: boolean; message: string; count: number }>('/vitals/bulk', { readings }),
+};
+
+export const sessionApi = {
+  getHistory: (patientId: string, limit = 50) =>
+    api.get<{ success: boolean; count: number; data: any[] }>(
+      `/sessions/patient/${patientId}?limit=${limit}`
+    ),
+
+  record: (payload: Record<string, unknown>) =>
+    api.post<{ success: boolean; message: string; data: any }>('/sessions', payload),
+
+  bulkSync: (sessions: any[]) =>
+    api.post<{ success: boolean; message: string; count: number }>('/sessions/bulk', { sessions }),
+};
+
 

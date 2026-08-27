@@ -7,6 +7,9 @@ import config from "./config/config.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import patientRoutes from "./routes/patient.routes.js";
+import reminderRoutes from "./routes/reminder.routes.js";
+import vitalsRoutes from "./routes/vitals.routes.js";
+import sessionRoutes from "./routes/session.routes.js";
 
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 
@@ -40,6 +43,9 @@ app.get("/health", (req, res) => {
 // --- Routes ---
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/patients", patientRoutes);
+app.use("/api/v1/reminders", reminderRoutes);
+app.use("/api/v1/vitals", vitalsRoutes);
+app.use("/api/v1/sessions", sessionRoutes);
 
 // --- 404 + error handling (must be registered last) ---
 app.use(notFound);

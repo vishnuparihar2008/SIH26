@@ -41,7 +41,7 @@ export function LoginScreen({ navigation }: Props) {
 
     setIsLoading(true);
     try {
-      await login(trimmedEmail, password);
+      await login(trimmedEmail, password, role);
       // Navigation is handled automatically by AppNavigator when isAuthenticated becomes true
     } catch (err) {
       if (err instanceof ApiError) {

@@ -189,6 +189,15 @@ export const login = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid credentials." });
     }
 
+    // If caller specified a role tab, verify match or provide clear message
+    if (req.body.role && req.body.role !== user.role) {
+      return res.status(400).json({
+        message: `This account is registered as a ${user.role}. Please select the '${
+          user.role === "caretaker" ? "Caretaker" : "Patient"
+        }' tab above to sign in.`,
+      });
+    }
+
     // Populate the correct linked profile for the role
     let profile = null;
     if (user.role === "caretaker") {
