@@ -3,7 +3,6 @@ import {
   getPatients,
   getPatientById,
   createPatient,
-  linkPatient,
   updatePatient,
   deletePatient,
   recordGameResult,
@@ -22,7 +21,6 @@ patientRoutes.get("/:id", getPatientById);
 
 // Write: caretaker-only — patients cannot create or manage other patients
 patientRoutes.post("/", restrictTo("caretaker"), createPatient);
-patientRoutes.post("/link", restrictTo("caretaker"), linkPatient);
 patientRoutes.put("/:id", restrictTo("caretaker"), updatePatient);
 patientRoutes.delete("/:id", restrictTo("caretaker"), deletePatient);
 

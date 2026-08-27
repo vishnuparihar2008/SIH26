@@ -6,7 +6,7 @@ import React, {
   useCallback,
   type ReactNode,
 } from 'react';
-import { authApi, setAuthToken, type AuthResponse } from '@/services/api';
+import { authApi, setAuthToken, type AuthResponse, type RegisterPayload } from '@/services/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,13 +21,12 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string, role?: 'caretaker' | 'patient') => Promise<User>;
-  register: (payload: {
-    name: string;
-    email: string;
-    phone?: string;
-    password: string;
-    role: 'caretaker' | 'patient';
-    relationshipToPatients?: string;
+  register: (payload: RegisterPayload & {
+    conditions?: string;
+    allergies?: string;
+    bloodGroup?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
   }) => Promise<User>;
   logout: () => Promise<void>;
 }

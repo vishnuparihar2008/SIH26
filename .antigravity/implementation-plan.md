@@ -30,15 +30,13 @@ crashes.
 
 ---
 
-## Phase 2 — Local Storage & Reminders (Completed ✅)
-- Set up local offline schema (`patients`, `game_sessions`, `vitals_readings`, `alerts`, `reminders`, `sync_queue`) with `storage.ts`.
-- Built reminder engine & scheduling (medicine, hydration, activity, meals, sleep, appointments) with `reminderService.ts`.
-- Built Caretaker Dashboard reminder manager: set, edit, toggle, and delete care reminders for linked patients.
-- Built elderly-friendly, high-contrast, offline-first `RemindersScreen.tsx` with one-tap completion & adherence tracking.
-- Built `VitalsStatusScreen.tsx` with live telemetry, emergency tiered response matrix, and simulated vitals triggers.
-- Enforced strict collection and login separation between Caretakers and Patients.
+## Phase 2 — Local Storage & Reminders (Days 3–5, parallel with Phase 1 finishing)
+- Set up SQLite/WatermelonDB local schema (`patients`, `game_sessions`,
+  `vitals_readings`, `alerts`, `reminders`, `sync_queue`).
+- Build reminder scheduling (medicine, hydration, activity, appointments) using
+  local notifications.
 
-**Exit criteria:** Reminders fire and store correctly with the device in airplane mode.
+**Exit criteria:** A reminder fires correctly with the device in airplane mode.
 
 ---
 

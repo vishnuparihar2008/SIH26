@@ -14,10 +14,10 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, typography, spacing, rounded, shadows } from '@/theme/theme';
 import { useAuth } from '@/context/AuthContext';
-import { patientApi, reminderApi, vitalsApi, type Patient, type ServerReminder, ApiError } from '@/services/api';
+import { patientApi, reminderApi, type Patient, type ServerReminder, ApiError } from '@/services/api';
 import { reminderService, REMINDER_TYPE_META } from '@/services/reminderService';
 import { localStore, type LocalReminder } from '@/services/storage';
-import { vitalsService, TIER_ACTIONS, type VitalTier } from '@/services/vitalsService';
+import { TIER_ACTIONS } from '@/services/vitalsService';
 import type { CaretakerStackParamList } from '@/navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<CaretakerStackParamList, 'CaretakerDashboard'>;
@@ -57,15 +57,21 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
   const [showAddPatientModal, setShowAddPatientModal] = useState(false);
   const [showLinkPatientModal, setShowLinkPatientModal] = useState(false);
   const [showAddReminderModal, setShowAddReminderModal] = useState(false);
+  const [showEditMedicalModal, setShowEditMedicalModal] = useState(false);
 
   // New Patient Form State
   const [pName, setPName] = useState('');
+  const [pEmail, setPEmail] = useState('');
+  const [pPassword, setPPassword] = useState('');
   const [pDob, setPDob] = useState('1950-05-12');
   const [pGender, setPGender] = useState('male');
   const [pBloodGroup, setPBloodGroup] = useState('B+');
   const [pRelationship, setPRelationship] = useState('Parent');
   const [pConditions, setPConditions] = useState('');
+  const [pAllergies, setPAllergies] = useState('');
   const [pPhone, setPPhone] = useState('');
+  const [pEmergName, setPEmergName] = useState('');
+  const [pEmergPhone, setPEmergPhone] = useState('');
   const [isSubmittingPatient, setIsSubmittingPatient] = useState(false);
 
   // Link Patient Form State
@@ -81,18 +87,34 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
   const [remMedDose, setRemMedDose] = useState('');
   const [isSubmittingReminder, setIsSubmittingReminder] = useState(false);
 
+  // Edit Medical Info Form State
+  const [editConditions, setEditConditions] = useState('');
+  const [editAllergies, setEditAllergies] = useState('');
+  const [editPhysician, setEditPhysician] = useState('');
+  const [editEmergName, setEditEmergName] = useState('');
+  const [editEmergPhone, setEditEmergPhone] = useState('');
+  const [editEmergRel, setEditEmergRel] = useState('');
+  const [editMedications, setEditMedications] = useState<{ name: string; dosage: string; frequency: string }[]>([]);
+  const [newMedName, setNewMedName] = useState('');
+  const [newMedDose, setNewMedDose] = useState('');
+  const [newMedFreq, setNewMedFreq] = useState('Twice daily');
+  const [isSubmittingMedical, setIsSubmittingMedical] = useState(false);
+
   const fetchPatients = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
     setError(null);
     try {
       const res = await patientApi.list();
       setPatients(res.data);
-      if (res.data.length > 0 && !selectedPatient) {
-        setSelectedPatient(res.data[0]);
-      } else if (selectedPatient) {
-        // Refresh selected patient reference
-        const updatedSelected = res.data.find((p) => p._id === selectedPatient._id);
-        if (updatedSelected) setSelectedPatient(updatedSelected);
+      if (res.data.length > 0) {
+        if (!selectedPatient) {
+          setSelectedPatient(res.data[0]);
+        } else {
+          const updated = res.data.find((p) => p._id === selectedPatient._id);
+          setSelectedPatient(updated || res.data[0]);
+        }
+      } else {
+        setSelectedPatient(null);
       }
     } catch (err) {
       if (err instanceof ApiError) {
@@ -117,7 +139,7 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
         setPatientReminders(localStore.getReminders(patientId));
       }
     } catch {
-      // Offline fallback: keep local
+      // Offline fallback
     }
   }, []);
 
@@ -152,17 +174,32 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
         ? pConditions.split(',').map((c) => c.trim()).filter(Boolean)
         : ['Hypertension'];
 
+      const allergiesList = pAllergies
+        ? pAllergies.split(',').map((c) => c.trim()).filter(Boolean)
+        : [];
+
       const res = await patientApi.create({
         fullName: pName.trim(),
         dateOfBirth: pDob,
         gender: pGender,
         bloodGroup: pBloodGroup,
         relationshipToCaretaker: pRelationship,
-        contact: { phone: pPhone, email: '' },
+        contact: {
+          phone: pPhone,
+          email: pEmail ? pEmail.toLowerCase().trim() : '',
+        },
+        email: pEmail ? pEmail.toLowerCase().trim() : undefined,
+        phone: pPhone || undefined,
+        password: pPassword || undefined,
         medicalInfo: {
           conditions: conditionsList,
-          allergies: [],
+          allergies: allergiesList,
           medications: [],
+          emergencyContact: {
+            name: pEmergName || user?.name || '',
+            phone: pEmergPhone || pPhone || user?.phone || '',
+            relation: pRelationship || 'Caretaker',
+          },
         },
         vitalsMonitoring: {
           enabled: true,
@@ -179,8 +216,13 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
       Alert.alert('Success', `${res.data.fullName} added successfully to your care.`);
       setShowAddPatientModal(false);
       setPName('');
+      setPEmail('');
+      setPPassword('');
       setPConditions('');
+      setPAllergies('');
       setPPhone('');
+      setPEmergName('');
+      setPEmergPhone('');
       await fetchPatients(true);
       setSelectedPatient(res.data);
     } catch (err: any) {
@@ -209,6 +251,104 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
       Alert.alert('Error', err.message || 'Failed to link patient.');
     } finally {
       setIsSubmittingLink(false);
+    }
+  };
+
+  // ─── Remove / Discharge Patient ──────────────────────────────────────────────
+  const handleRemovePatient = () => {
+    if (!selectedPatient) return;
+
+    Alert.alert(
+      'Remove Patient from Care',
+      `Are you sure you want to remove ${selectedPatient.fullName} from your care dashboard?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await patientApi.update(selectedPatient._id, { status: 'discharged' });
+              Alert.alert('Removed', `${selectedPatient.fullName} has been removed from your dashboard.`);
+              await fetchPatients(true);
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to remove patient.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ─── Open Edit Medical Modal ────────────────────────────────────────────────
+  const handleOpenEditMedical = () => {
+    if (!selectedPatient) return;
+    setEditConditions((selectedPatient.medicalInfo?.conditions || []).join(', '));
+    setEditAllergies((selectedPatient.medicalInfo?.allergies || []).join(', '));
+    setEditPhysician((selectedPatient.medicalInfo as any)?.primaryPhysician || '');
+    setEditEmergName(selectedPatient.medicalInfo?.emergencyContact?.name || '');
+    setEditEmergPhone(selectedPatient.medicalInfo?.emergencyContact?.phone || '');
+    setEditEmergRel(selectedPatient.medicalInfo?.emergencyContact?.relation || '');
+    setEditMedications(selectedPatient.medicalInfo?.medications || []);
+    setShowEditMedicalModal(true);
+  };
+
+  const handleAddMedicationToList = () => {
+    if (!newMedName.trim() || !newMedDose.trim()) {
+      Alert.alert('Required', 'Please enter medicine name and dosage.');
+      return;
+    }
+    setEditMedications((prev) => [
+      ...prev,
+      { name: newMedName.trim(), dosage: newMedDose.trim(), frequency: newMedFreq.trim() },
+    ]);
+    setNewMedName('');
+    setNewMedDose('');
+  };
+
+  const handleRemoveMedicationFromList = (index: number) => {
+    setEditMedications((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveMedicalInfo = async () => {
+    if (!selectedPatient) return;
+
+    setIsSubmittingMedical(true);
+    try {
+      const conditionsList = editConditions
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const allergiesList = editAllergies
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const updatedMedicalInfo = {
+        conditions: conditionsList,
+        allergies: allergiesList,
+        medications: editMedications,
+        primaryPhysician: editPhysician.trim(),
+        emergencyContact: {
+          name: editEmergName.trim(),
+          phone: editEmergPhone.trim(),
+          relation: editEmergRel.trim(),
+        },
+      };
+
+      const res = await patientApi.update(selectedPatient._id, {
+        medicalInfo: updatedMedicalInfo as any,
+      });
+
+      Alert.alert('Updated!', 'Medical profile updated successfully.');
+      setShowEditMedicalModal(false);
+      setSelectedPatient(res.data);
+      await fetchPatients(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update medical info.');
+    } finally {
+      setIsSubmittingMedical(false);
     }
   };
 
@@ -373,7 +513,7 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
           <Text style={styles.emptyIcon}>🏥</Text>
           <Text style={styles.emptyTitle}>No patients linked yet</Text>
           <Text style={styles.emptySubtitle}>
-            Add a patient to start managing their scheduled reminders, vitals telemetry, and cognitive training.
+            Add a patient with their email/login to start managing their scheduled reminders, medical info, vitals telemetry, and cognitive training.
           </Text>
           <Pressable
             style={styles.bigAddBtn}
@@ -431,11 +571,24 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
                   <Text style={styles.wsSub}>
                     {selectedPatient.gender} · Born {selectedPatient.dateOfBirth?.slice(0, 10)} · Blood: {selectedPatient.bloodGroup}
                   </Text>
+                  {selectedPatient.contact?.email ? (
+                    <Text style={styles.wsEmail}>✉️ {selectedPatient.contact.email}</Text>
+                  ) : null}
                 </View>
-                <View style={styles.wsVitalsBadge}>
-                  <Text style={styles.wsVitalsText}>
-                    ❤️ {selectedPatient.vitalsMonitoring?.currentVitals?.heartRate || 72} bpm · 🫁 {selectedPatient.vitalsMonitoring?.currentVitals?.spO2 || 98}%
-                  </Text>
+
+                <View style={styles.headerRightActions}>
+                  <View style={styles.wsVitalsBadge}>
+                    <Text style={styles.wsVitalsText}>
+                      ❤️ {selectedPatient.vitalsMonitoring?.currentVitals?.heartRate || 72} bpm
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={styles.removePatientBtn}
+                    onPress={handleRemovePatient}
+                    accessibilityLabel="Remove patient from care"
+                  >
+                    <Text style={styles.removePatientBtnText}>🗑️ Remove</Text>
+                  </Pressable>
                 </View>
               </View>
 
@@ -454,7 +607,7 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
                   onPress={() => setActiveTab('vitals')}
                 >
                   <Text style={[styles.wsTabText, activeTab === 'vitals' && styles.wsTabTextActive]}>
-                    📊 Vitals & Telemetry
+                    📊 Vitals
                   </Text>
                 </Pressable>
                 <Pressable
@@ -578,7 +731,7 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
                       <Text style={styles.vitalCardLabel}>SpO₂ Oxygen</Text>
                     </View>
                     <View style={styles.vitalCard}>
-                      <Text style={styles.vitalCardIcon}>🚶</Text>
+                      <Text style={styles.vitalCardIcon}>🏃</Text>
                       <Text style={styles.vitalCardVal}>
                         {selectedPatient.vitalsMonitoring?.currentVitals?.motionStatus || 'Normal'}
                       </Text>
@@ -628,23 +781,75 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
                 </View>
               )}
 
-              {/* ─── TAB 4: PROFILE ────────────────────────────────────────── */}
+              {/* ─── TAB 4: MEDICAL PROFILE & MANAGEMENT ──────────────────── */}
               {activeTab === 'profile' && (
                 <View style={styles.tabContent}>
-                  <Text style={styles.tabTitle}>Medical & Emergency Information</Text>
+                  <View style={styles.tabHeaderRow}>
+                    <Text style={styles.tabTitle}>Medical & Emergency Profile</Text>
+                    <Pressable
+                      style={styles.editMedicalBtn}
+                      onPress={handleOpenEditMedical}
+                    >
+                      <Text style={styles.editMedicalBtnText}>✏️ Edit Medical Info</Text>
+                    </Pressable>
+                  </View>
+
                   <View style={styles.profileSection}>
+                    {/* Conditions */}
                     <Text style={styles.profileLabel}>Medical Conditions:</Text>
                     <View style={styles.pillWrap}>
-                      {selectedPatient.medicalInfo?.conditions?.map((c, i) => (
-                        <View key={i} style={styles.medPill}>
-                          <Text style={styles.medPillText}>{c}</Text>
-                        </View>
-                      )) || <Text style={styles.noneText}>None listed</Text>}
+                      {selectedPatient.medicalInfo?.conditions && selectedPatient.medicalInfo.conditions.length > 0 ? (
+                        selectedPatient.medicalInfo.conditions.map((c, i) => (
+                          <View key={i} style={styles.medPill}>
+                            <Text style={styles.medPillText}>{c}</Text>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.noneText}>None recorded (tap Edit to add)</Text>
+                      )}
                     </View>
 
-                    <Text style={[styles.profileLabel, { marginTop: spacing.sm }]}>Emergency Contacts:</Text>
+                    {/* Allergies */}
+                    <Text style={[styles.profileLabel, { marginTop: spacing.sm }]}>Allergies:</Text>
+                    <View style={styles.pillWrap}>
+                      {selectedPatient.medicalInfo?.allergies && selectedPatient.medicalInfo.allergies.length > 0 ? (
+                        selectedPatient.medicalInfo.allergies.map((a, i) => (
+                          <View key={i} style={[styles.medPill, { backgroundColor: '#FFF0ED' }]}>
+                            <Text style={[styles.medPillText, { color: colors.error }]}>⚠️ {a}</Text>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.noneText}>No allergies known</Text>
+                      )}
+                    </View>
+
+                    {/* Prescribed Medications */}
+                    <Text style={[styles.profileLabel, { marginTop: spacing.sm }]}>Prescribed Medications:</Text>
+                    {selectedPatient.medicalInfo?.medications && selectedPatient.medicalInfo.medications.length > 0 ? (
+                      <View style={styles.medsList}>
+                        {selectedPatient.medicalInfo.medications.map((m, i) => (
+                          <View key={i} style={styles.medItemRow}>
+                            <Text style={styles.medItemName}>💊 {m.name} ({m.dosage})</Text>
+                            <Text style={styles.medItemFreq}>{m.frequency}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.noneText}>No medications prescribed</Text>
+                    )}
+
+                    {/* Physician */}
+                    <Text style={[styles.profileLabel, { marginTop: spacing.sm }]}>Primary Physician:</Text>
                     <Text style={styles.contactText}>
-                      Primary: {selectedPatient.medicalInfo?.emergencyContact?.name || user?.name || 'Caregiver'} ({selectedPatient.medicalInfo?.emergencyContact?.phone || user?.phone || 'On file'})
+                      {(selectedPatient.medicalInfo as any)?.primaryPhysician || 'Not assigned'}
+                    </Text>
+
+                    {/* Emergency Contacts */}
+                    <Text style={[styles.profileLabel, { marginTop: spacing.sm }]}>Emergency Contact:</Text>
+                    <Text style={styles.contactText}>
+                      Primary: {selectedPatient.medicalInfo?.emergencyContact?.name || user?.name || 'Caregiver'} (
+                      {selectedPatient.medicalInfo?.emergencyContact?.phone || user?.phone || 'On file'}) ·{' '}
+                      {selectedPatient.medicalInfo?.emergencyContact?.relation || 'Family'}
                     </Text>
                   </View>
                 </View>
@@ -659,16 +864,49 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Add New Patient to Your Care</Text>
-            <Text style={styles.modalSub}>Each patient is linked directly to your caretaker account.</Text>
+            <Text style={styles.modalSub}>
+              Creates patient profile and optional user login so the patient can log into their device.
+            </Text>
 
             <ScrollView style={styles.modalForm}>
-              <Text style={styles.fieldLabel}>Full Name</Text>
+              <Text style={styles.fieldLabel}>Full Name *</Text>
               <TextInput
                 style={styles.modalInput}
                 value={pName}
                 onChangeText={setPName}
                 placeholder="e.g. Ramesh Kumar"
                 placeholderTextColor={colors.mute}
+              />
+
+              <Text style={styles.fieldLabel}>Patient Email (for Login)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={pEmail}
+                onChangeText={setPEmail}
+                placeholder="e.g. ramesh@example.com"
+                placeholderTextColor={colors.mute}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+
+              <Text style={styles.fieldLabel}>Patient Initial Password</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={pPassword}
+                onChangeText={setPPassword}
+                placeholder="Default: Patient@123"
+                placeholderTextColor={colors.mute}
+                secureTextEntry
+              />
+
+              <Text style={styles.fieldLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={pPhone}
+                onChangeText={setPPhone}
+                placeholder="+91 9876543210"
+                placeholderTextColor={colors.mute}
+                keyboardType="phone-pad"
               />
 
               <Text style={styles.fieldLabel}>Date of Birth (YYYY-MM-DD)</Text>
@@ -706,6 +944,34 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
                 placeholder="e.g. Hypertension, Type 2 Diabetes, Mild Dementia"
                 placeholderTextColor={colors.mute}
               />
+
+              <Text style={styles.fieldLabel}>Allergies (comma-separated)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={pAllergies}
+                onChangeText={setPAllergies}
+                placeholder="e.g. Penicillin, Peanuts"
+                placeholderTextColor={colors.mute}
+              />
+
+              <Text style={styles.fieldLabel}>Emergency Contact Name</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={pEmergName}
+                onChangeText={setPEmergName}
+                placeholder="e.g. Anita Sharma"
+                placeholderTextColor={colors.mute}
+              />
+
+              <Text style={styles.fieldLabel}>Emergency Contact Phone</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={pEmergPhone}
+                onChangeText={setPEmergPhone}
+                placeholder="+91 9988776655"
+                placeholderTextColor={colors.mute}
+                keyboardType="phone-pad"
+              />
             </ScrollView>
 
             <View style={styles.modalBtnRow}>
@@ -725,6 +991,140 @@ export function CaretakerDashboardScreen({ navigation }: Props) {
                   <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.modalSubmitText}>Save Patient</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── MODAL: EDIT MEDICAL PROFILE ────────────────────────────────────── */}
+      <Modal visible={showEditMedicalModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit Medical Profile</Text>
+            <Text style={styles.modalSub}>
+              Manage conditions, allergies, physician, and prescribed medications for {selectedPatient?.fullName}.
+            </Text>
+
+            <ScrollView style={styles.modalForm}>
+              <Text style={styles.fieldLabel}>Medical Conditions (comma-separated)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editConditions}
+                onChangeText={setEditConditions}
+                placeholder="e.g. Hypertension, Type 2 Diabetes, Mild Memory Decline"
+                placeholderTextColor={colors.mute}
+              />
+
+              <Text style={styles.fieldLabel}>Known Allergies (comma-separated)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editAllergies}
+                onChangeText={setEditAllergies}
+                placeholder="e.g. Penicillin, Sulfa drugs, Dust"
+                placeholderTextColor={colors.mute}
+              />
+
+              <Text style={styles.fieldLabel}>Primary Physician</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editPhysician}
+                onChangeText={setEditPhysician}
+                placeholder="e.g. Dr. Neha Verma"
+                placeholderTextColor={colors.mute}
+              />
+
+              <Text style={styles.fieldLabel}>Emergency Contact Name</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editEmergName}
+                onChangeText={setEditEmergName}
+                placeholder="e.g. Sunita Kumar"
+                placeholderTextColor={colors.mute}
+              />
+
+              <Text style={styles.fieldLabel}>Emergency Contact Phone</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editEmergPhone}
+                onChangeText={setEditEmergPhone}
+                placeholder="+91 9988776655"
+                placeholderTextColor={colors.mute}
+                keyboardType="phone-pad"
+              />
+
+              <Text style={styles.fieldLabel}>Relationship to Patient</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editEmergRel}
+                onChangeText={setEditEmergRel}
+                placeholder="e.g. Daughter, Son, Guardian"
+                placeholderTextColor={colors.mute}
+              />
+
+              {/* Prescribed Medications Section */}
+              <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>Prescribed Medications</Text>
+              {editMedications.map((m, i) => (
+                <View key={i} style={styles.medRowEdit}>
+                  <Text style={styles.medRowEditText}>
+                    💊 {m.name} ({m.dosage}) - {m.frequency}
+                  </Text>
+                  <Pressable
+                    style={styles.medRemoveBtn}
+                    onPress={() => handleRemoveMedicationFromList(i)}
+                  >
+                    <Text style={styles.medRemoveBtnText}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
+
+              <View style={styles.addMedBox}>
+                <Text style={styles.addMedSub}>+ Add a Prescribed Medicine</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={newMedName}
+                  onChangeText={setNewMedName}
+                  placeholder="Medicine name (e.g. Donepezil)"
+                  placeholderTextColor={colors.mute}
+                />
+                <TextInput
+                  style={[styles.modalInput, { marginTop: 6 }]}
+                  value={newMedDose}
+                  onChangeText={setNewMedDose}
+                  placeholder="Dosage (e.g. 5mg, 500mg)"
+                  placeholderTextColor={colors.mute}
+                />
+                <TextInput
+                  style={[styles.modalInput, { marginTop: 6 }]}
+                  value={newMedFreq}
+                  onChangeText={setNewMedFreq}
+                  placeholder="Frequency (e.g. Once daily at bedtime)"
+                  placeholderTextColor={colors.mute}
+                />
+                <Pressable style={styles.addMedRowBtn} onPress={handleAddMedicationToList}>
+                  <Text style={styles.addMedRowBtnText}>+ Add to Medication List</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalBtnRow}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => setShowEditMedicalModal(false)}
+                disabled={isSubmittingMedical}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={styles.modalSubmitBtn}
+                onPress={handleSaveMedicalInfo}
+                disabled={isSubmittingMedical}
+              >
+                {isSubmittingMedical ? (
+                  <ActivityIndicator color={colors.onPrimary} />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Save Medical Info</Text>
                 )}
               </Pressable>
             </View>
@@ -1127,6 +1527,16 @@ const styles = StyleSheet.create({
     color: colors.mute,
     marginTop: 2,
   },
+  wsEmail: {
+    fontSize: typography.caption.fontSize,
+    color: colors.primary,
+    marginTop: 2,
+    fontWeight: '700',
+  },
+  headerRightActions: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   wsVitalsBadge: {
     backgroundColor: colors.canvasSoft,
     paddingHorizontal: spacing.sm,
@@ -1137,6 +1547,17 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmStrong.fontSize,
     color: colors.ink,
     fontWeight: '700',
+  },
+  removePatientBtn: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 3,
+    borderRadius: rounded.pill,
+    backgroundColor: '#FFF0ED',
+  },
+  removePatientBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.error,
   },
 
   // Tabs
@@ -1188,6 +1609,17 @@ const styles = StyleSheet.create({
   },
   addReminderBtnText: {
     color: colors.onPrimary,
+    fontSize: typography.bodySmStrong.fontSize,
+    fontWeight: '700',
+  },
+  editMedicalBtn: {
+    backgroundColor: colors.ink,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: rounded.pill,
+  },
+  editMedicalBtnText: {
+    color: colors.canvas,
     fontSize: typography.bodySmStrong.fontSize,
     fontWeight: '700',
   },
@@ -1364,7 +1796,7 @@ const styles = StyleSheet.create({
 
   // Profile Tab
   profileSection: {
-    gap: 4,
+    gap: 6,
   },
   profileLabel: {
     fontSize: typography.bodySmStrong.fontSize,
@@ -1390,6 +1822,27 @@ const styles = StyleSheet.create({
   noneText: {
     fontSize: typography.caption.fontSize,
     color: colors.mute,
+    fontStyle: 'italic',
+  },
+  medsList: {
+    gap: 4,
+    marginTop: 2,
+  },
+  medItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: colors.canvasSoft,
+    borderRadius: rounded.sm,
+    padding: spacing.xs,
+  },
+  medItemName: {
+    fontSize: typography.bodySmStrong.fontSize,
+    color: colors.ink,
+    fontWeight: '700',
+  },
+  medItemFreq: {
+    fontSize: typography.caption.fontSize,
+    color: colors.mute,
   },
   contactText: {
     fontSize: typography.bodySm.fontSize,
@@ -1408,7 +1861,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderRadius: rounded.card,
     padding: spacing.lg,
-    maxHeight: '85%',
+    maxHeight: '88%',
     gap: spacing.sm,
   },
   modalTitle: {
@@ -1494,5 +1947,55 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyMdStrong.fontSize,
     fontWeight: '700',
     color: colors.onPrimary,
+  },
+
+  // Edit Medical Modal Extras
+  medRowEdit: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.canvasSoft,
+    borderRadius: rounded.sm,
+    padding: spacing.xs,
+    marginVertical: 2,
+  },
+  medRowEditText: {
+    fontSize: typography.bodySm.fontSize,
+    color: colors.ink,
+    flex: 1,
+  },
+  medRemoveBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  medRemoveBtnText: {
+    color: colors.error,
+    fontWeight: '700',
+  },
+  addMedBox: {
+    backgroundColor: colors.canvasSoft,
+    borderRadius: rounded.md,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  addMedSub: {
+    fontSize: typography.bodySmStrong.fontSize,
+    fontWeight: '700',
+    color: colors.ink,
+    marginBottom: spacing.xs,
+  },
+  addMedRowBtn: {
+    backgroundColor: colors.ink,
+    borderRadius: rounded.pill,
+    paddingVertical: 6,
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  addMedRowBtnText: {
+    color: colors.canvas,
+    fontSize: typography.caption.fontSize,
+    fontWeight: '700',
   },
 });

@@ -192,7 +192,7 @@ export const patientApi = {
 
   getById: (id: string) => api.get<{ success: boolean; data: Patient }>(`/patients/${id}`),
 
-  create: (data: Partial<Patient>) =>
+  create: (data: Partial<Patient> & { email?: string; password?: string; phone?: string }) =>
     api.post<{ success: boolean; data: Patient }>('/patients', data as Record<string, unknown>),
 
   link: (identifier: string) =>

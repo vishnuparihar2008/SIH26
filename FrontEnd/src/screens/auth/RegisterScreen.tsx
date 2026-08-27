@@ -30,6 +30,11 @@ export function RegisterScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [relationship, setRelationship] = useState('');
+  const [dob, setDob] = useState('1950-05-12');
+  const [gender, setGender] = useState('male');
+  const [bloodGroup, setBloodGroup] = useState('B+');
+  const [conditions, setConditions] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +65,11 @@ export function RegisterScreen({ navigation }: Props) {
         password,
         role,
         relationshipToPatients: role === 'caretaker' ? relationship : undefined,
+        dateOfBirth: role === 'patient' ? dob : undefined,
+        gender: role === 'patient' ? gender : undefined,
+        bloodGroup: role === 'patient' ? bloodGroup : undefined,
+        conditions: role === 'patient' ? conditions : undefined,
+        emergencyContactPhone: role === 'patient' ? emergencyPhone : undefined,
       });
       // AuthContext updates user state → AppNavigator automatically transitions
     } catch (err) {
@@ -181,6 +191,61 @@ export function RegisterScreen({ navigation }: Props) {
                 accessibilityLabel="Relationship to patients"
               />
             </Field>
+          )}
+
+          {/* Patient-specific fields */}
+          {role === 'patient' && (
+            <>
+              <Field label="Date of Birth (YYYY-MM-DD)">
+                <TextInput
+                  style={styles.input}
+                  value={dob}
+                  onChangeText={setDob}
+                  placeholder="1950-05-12"
+                  placeholderTextColor={colors.mute}
+                  returnKeyType="next"
+                  accessibilityLabel="Date of birth"
+                />
+              </Field>
+
+              <Field label="Blood Group">
+                <TextInput
+                  style={styles.input}
+                  value={bloodGroup}
+                  onChangeText={setBloodGroup}
+                  placeholder="e.g. B+, O+, A+, AB+"
+                  placeholderTextColor={colors.mute}
+                  autoCapitalize="characters"
+                  returnKeyType="next"
+                  accessibilityLabel="Blood group"
+                />
+              </Field>
+
+              <Field label="Medical Conditions (optional)">
+                <TextInput
+                  style={styles.input}
+                  value={conditions}
+                  onChangeText={setConditions}
+                  placeholder="e.g. Hypertension, Diabetes, Memory Loss"
+                  placeholderTextColor={colors.mute}
+                  returnKeyType="next"
+                  accessibilityLabel="Medical conditions"
+                />
+              </Field>
+
+              <Field label="Emergency Contact Phone (optional)">
+                <TextInput
+                  style={styles.input}
+                  value={emergencyPhone}
+                  onChangeText={setEmergencyPhone}
+                  placeholder="+91 9876543210"
+                  placeholderTextColor={colors.mute}
+                  keyboardType="phone-pad"
+                  returnKeyType="next"
+                  accessibilityLabel="Emergency contact phone"
+                />
+              </Field>
+            </>
           )}
 
           <Field label="Password">
