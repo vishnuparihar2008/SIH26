@@ -1,79 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, typography, spacing, rounded, shadows } from '@/theme/theme';
-import { useAuth } from '@/context/AuthContext';
-import { reminderService } from '@/services/reminderService';
-import { vitalsService, TIER_ACTIONS } from '@/services/vitalsService';
-import { localStore } from '@/services/storage';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
+interface HomeModule {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  route: keyof RootStackParamList;
+  tag?: string;
+  isNew?: boolean;
+  category: string;
+}
+
+const HOME_MODULES: HomeModule[] = [
+  {
+    id: 'games',
+    title: 'Cognitive Memory Games',
+    description: 'Personal memory albums, routine sequencer, and focus exercises.',
+    icon: '🎮',
+    route: 'GamesCatalog',
+    tag: 'Guest favorite',
+    category: 'Brain Health · 6 Exercises',
+  },
+  {
+    id: 'reminders',
+    title: 'Daily Care Reminders',
+    description: 'Medicine, hydration, and daily routine scheduled offline alerts.',
+    icon: '⏰',
+    route: 'Reminders',
+    category: 'Schedule · Offline Active',
+  },
+  {
+    id: 'voice',
+    title: 'Offline Voice Assistant',
+    description: 'Speak in your regional language with push-to-talk speech AI.',
+    icon: '🎙️',
+    route: 'VoiceAssist',
+    isNew: true,
+    category: 'Vosk STT · Piper TTS',
+  },
+  {
+    id: 'vitals',
+    title: 'Health & Wearable Vitals',
+    description: 'Continuous heart rate, SpO2 monitoring, and emergency response.',
+    icon: '❤️',
+    route: 'VitalsStatus',
+    category: 'BLE Companion · 3 Alert Tiers',
+  },
+];
+
 export function HomeScreen({ navigation }: Props) {
-  const { user } = useAuth();
-  const patientId = (user?.patientProfile as any)?._id || user?.id || 'default-patient';
-
-  const [adherence, setAdherence] = useState(() => reminderService.getAdherenceStats(patientId));
-  const [latestVital, setLatestVital] = useState(() => vitalsService.getLatestReading(patientId));
-
-  useEffect(() => {
-    const update = () => {
-      setAdherence(reminderService.getAdherenceStats(patientId));
-      setLatestVital(vitalsService.getLatestReading(patientId));
-    };
-    update();
-    const un1 = localStore.subscribe('reminders', update);
-    const un2 = localStore.subscribe('vitals_readings', update);
-    return () => {
-      un1();
-      un2();
-    };
-  }, [patientId]);
-
-  const tierInfo = TIER_ACTIONS[latestVital.tier] || TIER_ACTIONS.normal;
-
-  const HOME_MODULES = [
-    {
-      id: 'games',
-      title: 'Cognitive Memory Games',
-      description: 'Personal memory albums, routine sequencer, and focus exercises.',
-      icon: '🎮',
-      route: 'GamesCatalog' as keyof RootStackParamList,
-      tag: '6 Games Active',
-      category: 'Brain Health · Adaptive Engine',
-    },
-    {
-      id: 'reminders',
-      title: 'Daily Care Reminders',
-      description:
-        adherence.total > 0
-          ? `${adherence.completed} of ${adherence.total} completed (${adherence.percentage}% adherence)`
-          : 'Medicine, hydration, and daily routine scheduled offline alerts.',
-      icon: '⏰',
-      route: 'Reminders' as keyof RootStackParamList,
-      category: 'Schedule · Offline Active',
-      tag: adherence.completed === adherence.total && adherence.total > 0 ? '✓ All Done' : undefined,
-    },
-    {
-      id: 'voice',
-      title: 'Offline Voice Assistant',
-      description: 'Speak in your regional language with push-to-talk speech AI.',
-      icon: '🎙️',
-      route: 'VoiceAssist' as keyof RootStackParamList,
-      isNew: true,
-      category: 'Vosk STT · Piper TTS',
-    },
-    {
-      id: 'vitals',
-      title: 'Health & Wearable Vitals',
-      description: `Telemetry: ${latestVital.heartRate || 72} bpm, SpO₂ ${latestVital.spO2 || 98}% · Tier: ${tierInfo.badgeLabel}`,
-      icon: '❤️',
-      route: 'VitalsStatus' as keyof RootStackParamList,
-      category: 'BLE Companion · 3 Alert Tiers',
-      tag: latestVital.tier !== 'normal' ? '⚠️ Alert Active' : undefined,
-    },
-  ];
   return (
     <ScrollView
       style={styles.screen}

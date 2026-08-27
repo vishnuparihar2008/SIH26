@@ -1,5 +1,7 @@
+import bcrypt from "bcrypt";
 import patientModel from "../models/patient.model.js";
 import caretakerModel from "../models/caretaker.model.js";
+import userModel from "../models/user.model.js";
 
 // Fields that a caretaker is allowed to update on a patient record.
 // Excludes protected fields: caretakerId, gameStats, vitalsMonitoring internals.
@@ -48,7 +50,9 @@ export const getPatients = async (req, res, next) => {
       }
     } else if (req.user?.role === "caretaker") {
       const caretakerId = await resolveCaretakerId(req.user);
-      query = caretakerId ? { caretakerId } : { _id: null };
+      query = caretakerId
+        ? { caretakerId, status: { $ne: "discharged" } }
+        : { _id: null };
     }
 
     const patients = await patientModel
@@ -87,7 +91,7 @@ export const getPatientById = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
-// POST /api/v1/patients  (caretaker only)
+// POST /api/v1/patients  (caretaker adds patient & creates patient user)
 // ---------------------------------------------------------------------------
 export const createPatient = async (req, res, next) => {
   try {
@@ -98,6 +102,9 @@ export const createPatient = async (req, res, next) => {
       bloodGroup,
       profileImageUrl,
       contact,
+      email,
+      phone,
+      password,
       address,
       relationshipToCaretaker,
       medicalInfo,
@@ -120,20 +127,48 @@ export const createPatient = async (req, res, next) => {
       });
     }
 
+    const patientContact = contact || {
+      email: email ? email.toLowerCase().trim() : "",
+      phone: phone || "",
+    };
+
     const patient = await patientModel.create({
       caretakerId,
-      fullName,
+      fullName: fullName.trim(),
       dateOfBirth: new Date(dateOfBirth),
       gender: gender || "prefer_not_to_say",
       bloodGroup: bloodGroup || "O+",
       profileImageUrl: profileImageUrl || "",
-      contact: contact || {},
+      contact: patientContact,
       address: address || {},
       relationshipToCaretaker: relationshipToCaretaker || "Parent",
       medicalInfo: medicalInfo || {},
       vitalsMonitoring: vitalsMonitoring || { enabled: true },
       notes: notes || "",
+      status: "active",
     });
+
+    // Automatically create / link User login account if email provided
+    const patientEmail = patientContact.email || (email ? email.toLowerCase().trim() : "");
+    if (patientEmail) {
+      const existingUser = await userModel.findOne({ email: patientEmail });
+      if (existingUser) {
+        existingUser.patientProfile = patient._id;
+        await existingUser.save();
+      } else {
+        const initialPassword = password || "Patient@123";
+        const passwordHash = await bcrypt.hash(initialPassword, 12);
+        await userModel.create({
+          name: fullName.trim(),
+          username: patientEmail.split("@")[0],
+          email: patientEmail,
+          phone: patientContact.phone || "",
+          password: passwordHash,
+          role: "patient",
+          patientProfile: patient._id,
+        });
+      }
+    }
 
     return res.status(201).json({
       success: true,

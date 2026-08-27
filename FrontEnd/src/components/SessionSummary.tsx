@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LargeButton } from '@/components/LargeButton';
 import { colors, typography, spacing, rounded, shadows } from '@/theme/theme';
+import { useAuth } from '@/context/AuthContext';
+import { gameSyncService } from '@/services/gameSyncService';
 import { GameSessionResult } from '@/types/game';
 
 interface SessionSummaryProps {
@@ -23,6 +25,17 @@ export function SessionSummary({
   onPlayAgain,
   onGoHome,
 }: SessionSummaryProps) {
+  const { user } = useAuth();
+  const patientId = (user?.patientProfile as any)?._id || user?.id || 'default-patient';
+  const hasSyncedRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasSyncedRef.current) {
+      hasSyncedRef.current = true;
+      gameSyncService.recordGameSession(result, patientId);
+    }
+  }, [result, patientId]);
+
   const isPerfect = result.correctCount === result.totalCount;
 
   return (

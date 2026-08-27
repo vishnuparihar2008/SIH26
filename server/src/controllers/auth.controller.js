@@ -119,13 +119,20 @@ export const register = async (req, res, next) => {
       linkedProfile = caretaker;
     } else {
       // Patient self-registration: caretakerId is optional (can be linked later by a caretaker)
-      // We create a minimal patient document — caretakerId will be set when a caretaker adds them
       const patient = await patientModel.create({
         fullName: userName,
-        dateOfBirth: req.body.dateOfBirth || new Date("1990-01-01"),
+        dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : new Date("1950-01-01"),
         gender: req.body.gender || "prefer_not_to_say",
+        bloodGroup: req.body.bloodGroup || "O+",
+        relationshipToCaretaker: req.body.relationshipToCaretaker || "Self",
         contact: { email: normalizedEmail, phone: phone || "" },
-        // caretakerId intentionally omitted — patient is self-registered
+        medicalInfo: req.body.medicalInfo || {
+          conditions: req.body.conditions ? req.body.conditions.split(",").map((s) => s.trim()).filter(Boolean) : [],
+          allergies: req.body.allergies ? req.body.allergies.split(",").map((s) => s.trim()).filter(Boolean) : [],
+          medications: [],
+          emergencyContact: req.body.emergencyContact || {},
+        },
+        status: "active",
       });
       linkedProfile = patient;
     }

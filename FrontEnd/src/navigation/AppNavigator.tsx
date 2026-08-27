@@ -13,9 +13,9 @@ import { RegisterScreen } from '@/screens/auth/RegisterScreen';
 // ─── Patient screens ──────────────────────────────────────────────────────────
 import { HomeScreen } from '@/screens/HomeScreen';
 import { GamesCatalogScreen } from '@/screens/GamesCatalogScreen';
-import { RemindersScreen } from '@/screens/RemindersScreen';
+import { RemindersPlaceholderScreen } from '@/screens/RemindersPlaceholderScreen';
 import { VoiceAssistPlaceholderScreen } from '@/screens/VoiceAssistPlaceholderScreen';
-import { VitalsStatusScreen } from '@/screens/VitalsStatusScreen';
+import { VitalsStatusPlaceholderScreen } from '@/screens/VitalsStatusPlaceholderScreen';
 import { MemoryAlbumScreen } from '@/screens/games/MemoryAlbumScreen';
 import { MemoryTrayScreen } from '@/screens/games/MemoryTrayScreen';
 import { RoutineSequencerScreen } from '@/screens/games/RoutineSequencerScreen';
@@ -103,7 +103,7 @@ function PatientNavigator() {
       />
       <PatientStack.Screen
         name="Reminders"
-        component={RemindersScreen}
+        component={RemindersPlaceholderScreen}
         options={{ title: 'Daily Reminders' }}
       />
       <PatientStack.Screen
@@ -113,7 +113,7 @@ function PatientNavigator() {
       />
       <PatientStack.Screen
         name="VitalsStatus"
-        component={VitalsStatusScreen}
+        component={VitalsStatusPlaceholderScreen}
         options={{ title: 'Health & Safety' }}
       />
       <PatientStack.Screen
